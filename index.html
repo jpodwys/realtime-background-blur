@@ -113,7 +113,9 @@
       const blur = new Blur();
       blur.init();
 
-      document.getElementById('toggle').addEventListener('click', blur.toggle);
+      document.getElementById('toggle').addEventListener('click', () => {
+        blur.toggle();
+      });
     </script>
   </body>
 </html>
