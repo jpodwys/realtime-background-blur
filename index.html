@@ -107,16 +107,13 @@
             this.outputCtx.putImageData(outputFrame, 0, 0);
             await this.draw();
           }
-
         }
       }
 
       const blur = new Blur();
       blur.init();
 
-      document.getElementById('toggle').addEventListener('click', () => {
-        blur.toggle();
-      });
+      document.getElementById('toggle').addEventListener('click', blur.toggle);
     </script>
   </body>
 </html>
