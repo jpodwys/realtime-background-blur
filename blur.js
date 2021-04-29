@@ -7,14 +7,15 @@ class Thread {
 }
 
 class ThreadPool {
-  constructor (threads) {
-    this.threads = threads;
+  constructor () {
+    this.threads = [];
+  }
+
+  addThread (thread) {
+    this.threads.push(thread);
   }
 
   getAvailableThread () {
-    // const output = {};
-    // this.threads.forEach((thread, i) => output[i] = thread.isBusy);
-    // console.log(output);
     return this.threads.find((thread) => thread.isBusy === false);
   }
 
@@ -32,11 +33,8 @@ class Blur {
     this.width = width;
     this.height = height;
     this.blur = true;
-    this.workers = [];
     this.workerCount = 10;
-    this.workerIndex = 0;
-    this.interval;
-    this.frameTimes = [];
+    this.threadPool = new ThreadPool();
     this.totalFrames = 0;
   }
 
@@ -44,24 +42,24 @@ class Blur {
     this.imageCapture = new ImageCapture(this.videoStreamTrack);
     this.outputCanvas.width = this.width;
     this.outputCanvas.height = this.height;
-    this.outputCanvas.width = this.width;
-    this.outputCanvas.height = this.height;
-    this.createWorkers();
     this.startDraw = performance.now();
+    this.populateThreadPool();
     this.draw();
   }
 
-  createWorkers () {
-    const threads = [];
+  populateThreadPool () {
     for (let i = 0; i < this.workerCount; i++) {
-      const worker = new Worker('./blur-worker.js');
-      const workerId = Date.now();
-      worker.addEventListener('message', this.onFrame.bind(this));
-      worker.postMessage({ action: 'init', payload: { workerId, ...this.videoStreamTrack.getSettings() } });
-      const thread = new Thread(workerId, worker);
-      threads.push(thread);
+      this.createThread();
     }
-    this.threadPool = new ThreadPool(threads);
+  }
+
+  createThread () {
+    const worker = new Worker('./blur-worker.js');
+    const workerId = Date.now();
+    worker.addEventListener('message', this.onFrame.bind(this));
+    worker.postMessage({ action: 'init', payload: { workerId, ...this.videoStreamTrack.getSettings() } });
+    const thread = new Thread(workerId, worker);
+    this.threadPool.addThread(thread);
   }
 
   onFrame (event) {
@@ -76,6 +74,7 @@ class Blur {
   toggle () {
     this.blur = !this.blur;
 
+    // Track FPS--Accurate after toggling off/on once
     if (this.blur) {
       this.startDraw = performance.now();
     } else {
