@@ -59,13 +59,13 @@ const init = async ({ workerId, width, height }) => {
   worker = new BlurWorker(workerId, width, height);
 }
 
-const draw = async (videoInput) => {
-  worker.draw(videoInput).then((frame) => self.postMessage({ workerId: worker.workerId, frame }));
+const draw = async (start, videoInput) => {
+  worker.draw(videoInput).then((frame) => self.postMessage({ workerId: worker.workerId, start, frame }));
 }
 
 self.onmessage = (event) => {
   switch (event.data.action) {
     case 'init': init(event.data.payload); break;
-    case 'draw': draw(event.data.payload); break;
+    case 'draw': draw(event.data.start, event.data.payload); break;
   }
 }

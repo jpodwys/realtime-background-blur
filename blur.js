@@ -33,9 +33,13 @@ class Blur {
     this.width = width;
     this.height = height;
     this.blur = true;
-    this.workerCount = 12;
+    this.workerCount = Math.min(12, navigator.hardwareConcurrency);
     this.threadPool = new ThreadPool();
     this.totalFrames = 0;
+    this.totalFrameProcessingTime = 0;
+    this.threadHits = 0;
+    this.threadMisses = 0;
+    this.frames = [];
   }
 
   async init () {
@@ -69,6 +73,7 @@ class Blur {
     const thread = this.threadPool.getThreadByWorkerId(event.data.workerId);
     thread.isBusy = false;
     this.totalFrames++;
+    this.totalFrameProcessingTime += (performance.now() - event.data.start);
   }
 
   toggle () {
@@ -78,9 +83,7 @@ class Blur {
     if (this.blur) {
       this.startDraw = performance.now();
     } else {
-      const elapsed = (performance.now() - this.startDraw) / 1000;
-      console.log('Average FPS:', this.totalFrames / elapsed);
-      this.totalFrames = 0;
+      this.logMetrics();
     }
   }
 
@@ -89,12 +92,29 @@ class Blur {
     if (this.blur) {
       const thread = this.threadPool.getAvailableThread();
       if (thread) {
+        this.threadHits++;
         thread.isBusy = true;
-        thread.worker.postMessage({ action: 'draw', payload: bitmap }, [ bitmap ]);
+        thread.worker.postMessage({ action: 'draw', start: performance.now(), payload: bitmap }, [ bitmap ]);
+      } else {
+        this.threadMisses++;
       }
     } else {
       this.outputCtx.drawImage(bitmap, 0, 0, this.width, this.height);
     }
     await this.draw();
+  }
+
+  logMetrics () {
+    const elapsed = (performance.now() - this.startDraw) / 1000;
+    console.log('Elapsed Time:', elapsed);
+    console.log('Total Frames:', this.totalFrames);
+    console.log('Average FPS:', this.totalFrames / elapsed);
+    console.log('Thread Hits:', this.threadHits);
+    console.log('Thread Misses:', this.threadMisses);
+    console.log('Average Frame Processing Time:', this.totalFrameProcessingTime / this.totalFrames);
+    this.totalFrames = 0;
+    this.threadHits = 0;
+    this.threadMisses = 0;
+    this.totalFrameProcessingTime = 0;
   }
 }
