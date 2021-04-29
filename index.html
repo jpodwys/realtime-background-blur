@@ -26,6 +26,8 @@
       class Blur {
         constructor () {
           this.blur = true;
+          this.startDraw = performance.now();
+          this.totalFrames = 0;
 
           this.bodyPixConfig = {
             architechture: 'ResNetV1',
@@ -56,6 +58,14 @@
 
         toggle () {
           this.blur = !this.blur;
+
+          if (this.blur) {
+            this.startDraw = performance.now();
+          } else {
+            const elapsed = (performance.now() - this.startDraw) / 1000;
+            console.log('Average FPS:', this.totalFrames / elapsed);
+            this.totalFrames = 0;
+          }
         }
 
         async initVideoStream () {
@@ -105,6 +115,7 @@
               }
             }
             this.outputCtx.putImageData(outputFrame, 0, 0);
+            this.totalFrames++;
             await this.draw();
           }
         }
