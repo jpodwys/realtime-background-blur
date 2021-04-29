@@ -20,102 +20,22 @@
       <canvas id="video-output"></canvas>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+    <script src="./blur.js"></script>
     <script>
-      class Blur {
-        constructor () {
-          this.blur = true;
+      (async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        const [ track ] = stream.getVideoTracks();
+        const video = document.getElementById('video-input');
+        const canvas = document.getElementById('video-output');
+        const toggle = document.getElementById('toggle');
 
-          this.bodyPixConfig = {
-            architechture: 'ResNetV1',
-            outputStride: 16,
-            multiplier: 1,
-            quantBytes: 4
-          };
+        const blur = new Blur(track, canvas);
+        await blur.init();
 
-          this.segmentationConfig = {
-            internalResolution: 1,
-            segmentationThreshold: 0.5,
-            scoreThreshold: 1
-          };
-        }
+        video.srcObject = stream;
 
-        async init () {
-          this.videoInput = document.getElementById('video-input');
-          this.processCanvas = document.createElement('canvas');
-          this.processCtx = this.processCanvas.getContext('2d');
-          this.blurCanvas = document.createElement('canvas');
-          this.blurCtx = this.blurCanvas.getContext('2d');
-          this.outputCanvas = document.getElementById('video-output');
-          this.outputCtx = this.outputCanvas.getContext('2d');
-
-          this.model = await bodyPix.load(this.bodyPixConfig);
-          this.initVideoStream();
-        }
-
-        toggle () {
-          this.blur = !this.blur;
-        }
-
-        async initVideoStream () {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          this.videoInput.addEventListener('loadedmetadata', () => {
-            this.width = this.videoInput.videoWidth;
-            this.height = this.videoInput.videoHeight;
-            this.setElementProperties();
-            this.draw();
-          });
-          this.videoInput.srcObject = stream;
-        }
-
-        setElementProperties () {
-          this.setCanvasWidth(this.processCanvas);
-          this.setCanvasWidth(this.blurCanvas);
-          this.setCanvasWidth(this.outputCanvas);
-
-          this.blurCtx.filter = 'blur(15px)';
-        }
-
-        setCanvasWidth (canvas) {
-          canvas.width = this.width
-          canvas.height = this.height
-        }
-
-        async draw () {
-          if (!this.blur) {
-            this.outputCtx.drawImage(this.videoInput, 0, 0, this.width, this.height);
-            setTimeout(this.draw.bind(this), 1000 / 30);
-          } else {
-            // Todo: Move this into a worker thread that uses OffscreenCanvas
-            this.processCtx.drawImage(this.videoInput, 0, 0, this.width, this.height);
-            const rawFrame = this.processCtx.getImageData(0, 0, this.width, this.height);
-            const { data } = await this.model.segmentPerson(this.processCanvas, );
-            this.blurCtx.drawImage(this.processCanvas, 0, 0);
-            const blurFrame = this.blurCtx.getImageData(0, 0, this.width, this.height);
-            const outputFrame = this.outputCtx.getImageData(0, 0, this.width, this.height);
-            for (let x = 0; x < this.width; x++) {
-              for (let y = 0; y < this.height; y++) {
-                const n = x + (y * this.width);
-                const frame = data[n] === 0 ? blurFrame : rawFrame;
-                outputFrame.data[n * 4] = frame.data[n * 4]; //R
-                outputFrame.data[n * 4 + 1] = frame.data[n * 4 + 1]; //G
-                outputFrame.data[n * 4 + 2] = frame.data[n * 4 + 2]; //B
-                outputFrame.data[n * 4 + 3] = frame.data[n * 4 + 3]; //A
-              }
-            }
-            this.outputCtx.putImageData(outputFrame, 0, 0);
-            await this.draw();
-          }
-        }
-      }
-
-      const blur = new Blur();
-      blur.init();
-
-      document.getElementById('toggle').addEventListener('click', () => {
-        blur.toggle();
-      });
+        toggle.addEventListener('click', () => blur.toggle());
+      })();
     </script>
   </body>
 </html>
