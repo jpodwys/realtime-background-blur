@@ -33,7 +33,7 @@ class Blur {
     this.width = width;
     this.height = height;
     this.blur = true;
-    this.workerCount = 10;
+    this.workerCount = 12;
     this.threadPool = new ThreadPool();
     this.totalFrames = 0;
   }
