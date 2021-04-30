@@ -1,29 +1,3 @@
-class Thread {
-  constructor (workerId, worker) {
-    this.workerId = workerId;
-    this.worker = worker;
-    this.isBusy = false;
-  }
-}
-
-class ThreadPool {
-  constructor () {
-    this.threads = [];
-  }
-
-  addThread (thread) {
-    this.threads.push(thread);
-  }
-
-  getAvailableThread () {
-    return this.threads.find((thread) => thread.isBusy === false);
-  }
-
-  getThreadByWorkerId (workerId) {
-    return this.threads.find((thread) => thread.workerId === workerId);
-  }
-}
-
 class Blur {
   constructor (videoStreamTrack, canvasOutputElement) {
     this.videoStreamTrack = videoStreamTrack;
@@ -61,19 +35,19 @@ class Blur {
     const worker = new Worker('./blur-worker.js');
     const workerId = Date.now();
     worker.addEventListener('message', this.onFrame.bind(this));
-    worker.postMessage({ action: 'init', payload: { workerId, ...this.videoStreamTrack.getSettings() } });
+    worker.postMessage({ action: 'init', payload: { workerId, width: this.width, height: this.height } });
     const thread = new Thread(workerId, worker);
     this.threadPool.addThread(thread);
   }
 
-  onFrame (event) {
+  onFrame ({ data }) {
     if (this.blur) {
-      this.outputCtx.putImageData(event.data.frame, 0, 0);
+      this.outputCtx.putImageData(data.frame, 0, 0);
     }
-    const thread = this.threadPool.getThreadByWorkerId(event.data.workerId);
+    const thread = this.threadPool.getThreadByWorkerId(data.workerId);
     thread.isBusy = false;
     this.totalFrames++;
-    this.totalFrameProcessingTime += (performance.now() - event.data.start);
+    this.totalFrameProcessingTime += data.frameTime;
   }
 
   toggle () {
@@ -94,7 +68,7 @@ class Blur {
       if (thread) {
         this.threadHits++;
         thread.isBusy = true;
-        thread.worker.postMessage({ action: 'draw', start: performance.now(), payload: bitmap }, [ bitmap ]);
+        thread.worker.postMessage({ action: 'draw', payload: bitmap }, [ bitmap ]);
       } else {
         this.threadMisses++;
       }

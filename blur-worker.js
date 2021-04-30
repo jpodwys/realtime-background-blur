@@ -27,6 +27,7 @@ class BlurWorker {
 
   async draw (videoInput) {
     if (!this.model) this.model = await bodyPix.load(this.bodyPixConfig);
+    const start = performance.now();
     this.processCtx.drawImage(videoInput, 0, 0, this.width, this.height);
     const rawFrame = this.processCtx.getImageData(0, 0, this.width, this.height);
     const { data } = await this.model.segmentPerson(rawFrame);
@@ -44,7 +45,11 @@ class BlurWorker {
         outputFrame.data[n * 4 + 3] = frame.data[n * 4 + 3]; //A
       }
     }
-    return outputFrame;
+
+    return {
+      frame: outputFrame,
+      frameTime: performance.now() - start
+    }
   }
 }
 
@@ -59,13 +64,13 @@ const init = async ({ workerId, width, height }) => {
   worker = new BlurWorker(workerId, width, height);
 }
 
-const draw = async (start, videoInput) => {
-  worker.draw(videoInput).then((frame) => self.postMessage({ workerId: worker.workerId, start, frame }));
+const draw = async (videoInput) => {
+  worker.draw(videoInput).then(({ frame, frameTime }) => self.postMessage({ workerId: worker.workerId, frame, frameTime }));
 }
 
-self.onmessage = (event) => {
-  switch (event.data.action) {
-    case 'init': init(event.data.payload); break;
-    case 'draw': draw(event.data.start, event.data.payload); break;
+self.onmessage = ({ data }) => {
+  switch (data.action) {
+    case 'init': init(data.payload); break;
+    case 'draw': draw(data.payload); break;
   }
 }
