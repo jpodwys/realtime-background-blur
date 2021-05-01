@@ -9,18 +9,13 @@ class Blur {
     this.blur = true;
     this.workerCount = Math.min(12, navigator.hardwareConcurrency);
     this.threadPool = new ThreadPool();
-    this.totalFrames = 0;
-    this.totalFrameProcessingTime = 0;
-    this.threadHits = 0;
-    this.threadMisses = 0;
-    this.frames = [];
+    this.metrics = new Metrics();
   }
 
   async init () {
     this.imageCapture = new ImageCapture(this.videoStreamTrack);
     this.outputCanvas.width = this.width;
     this.outputCanvas.height = this.height;
-    this.startDraw = performance.now();
     this.populateThreadPool();
     this.draw();
   }
@@ -46,18 +41,16 @@ class Blur {
     }
     const thread = this.threadPool.getThreadByWorkerId(data.workerId);
     thread.isBusy = false;
-    this.totalFrames++;
-    this.totalFrameProcessingTime += data.frameTime;
+    this.metrics.trackFrame(data.frameTime);
   }
 
   toggle () {
     this.blur = !this.blur;
 
-    // Track FPS--Accurate after toggling off/on once
     if (this.blur) {
-      this.startDraw = performance.now();
+      this.metrics.start();
     } else {
-      this.logMetrics();
+      this.metrics.stop();
     }
   }
 
@@ -66,29 +59,15 @@ class Blur {
     if (this.blur) {
       const thread = this.threadPool.getAvailableThread();
       if (thread) {
-        this.threadHits++;
+        this.metrics.trackHit(true);
         thread.isBusy = true;
         thread.worker.postMessage({ action: 'draw', payload: bitmap }, [ bitmap ]);
       } else {
-        this.threadMisses++;
+        this.metrics.trackMiss(false);
       }
     } else {
       this.outputCtx.drawImage(bitmap, 0, 0, this.width, this.height);
     }
     await this.draw();
-  }
-
-  logMetrics () {
-    const elapsed = (performance.now() - this.startDraw) / 1000;
-    console.log('Elapsed Time:', elapsed);
-    console.log('Total Frames:', this.totalFrames);
-    console.log('Average FPS:', this.totalFrames / elapsed);
-    console.log('Thread Hits:', this.threadHits);
-    console.log('Thread Misses:', this.threadMisses);
-    console.log('Average Frame Processing Time:', this.totalFrameProcessingTime / this.totalFrames);
-    this.totalFrames = 0;
-    this.threadHits = 0;
-    this.threadMisses = 0;
-    this.totalFrameProcessingTime = 0;
   }
 }
