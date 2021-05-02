@@ -100,7 +100,7 @@
             // Todo: Move this into a worker thread that uses OffscreenCanvas
             this.processCtx.drawImage(this.videoInput, 0, 0, this.width, this.height);
             const segmentation = await this.model.segmentPerson(this.processCanvas);
-            bodyPix.drawBokehEffect(this.outputCanvas, this.processCanvas, segmentation, 3, 3);
+            bodyPix.drawBokehEffect(this.outputCanvas, this.processCanvas, segmentation, 5, 3);
             this.totalFrames++;
             await this.draw();
           }
