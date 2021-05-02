@@ -5,11 +5,6 @@ class BlurWorker {
     this.height = height;
     this.processCanvas = new OffscreenCanvas(this.width, this.height);
     this.processCtx = this.processCanvas.getContext('2d');
-    this.blurCanvas = new OffscreenCanvas(this.width, this.height);
-    this.blurCtx = this.blurCanvas.getContext('2d');
-    this.blurCtx.filter = 'blur(15px)';
-    this.outputCanvas = new OffscreenCanvas(this.width, this.height);
-    this.outputCtx = this.outputCanvas.getContext('2d');
 
     this.bodyPixConfig = {
       architechture: 'MobileNetV1',
@@ -25,29 +20,16 @@ class BlurWorker {
     };
   }
 
-  async draw (videoInput) {
+  async draw (bitmap) {
     if (!this.model) this.model = await bodyPix.load(this.bodyPixConfig);
     const start = performance.now();
-    this.processCtx.drawImage(videoInput, 0, 0, this.width, this.height);
-    const rawFrame = this.processCtx.getImageData(0, 0, this.width, this.height);
-    const { data } = await this.model.segmentPerson(rawFrame);
-    this.blurCtx.drawImage(this.processCanvas, 0, 0);
-    const blurFrame = this.blurCtx.getImageData(0, 0, this.width, this.height);
-    const outputFrame = this.outputCtx.getImageData(0, 0, this.width, this.height);
-
-    for (let x = 0; x < this.width; x++) {
-      for (let y = 0; y < this.height; y++) {
-        const n = x + (y * this.width);
-        const frame = data[n] === 0 ? blurFrame : rawFrame;
-        outputFrame.data[n * 4] = frame.data[n * 4]; //R
-        outputFrame.data[n * 4 + 1] = frame.data[n * 4 + 1]; //G
-        outputFrame.data[n * 4 + 2] = frame.data[n * 4 + 2]; //B
-        outputFrame.data[n * 4 + 3] = frame.data[n * 4 + 3]; //A
-      }
-    }
+    this.processCtx.drawImage(bitmap, 0, 0, this.width, this.height);
+    const frame = this.processCtx.getImageData(0, 0, this.width, this.height);
+    const segmentation = await this.model.segmentPerson(frame);
 
     return {
-      frame: outputFrame,
+      frame,
+      segmentation,
       frameTime: performance.now() - start
     }
   }
@@ -65,7 +47,8 @@ const init = async ({ workerId, width, height }) => {
 }
 
 const draw = async (videoInput) => {
-  worker.draw(videoInput).then(({ frame, frameTime }) => self.postMessage({ workerId: worker.workerId, frame, frameTime }));
+  const { frame, segmentation, frameTime } = await worker.draw(videoInput);
+  self.postMessage({ workerId: worker.workerId, frame, segmentation, frameTime });
 }
 
 self.onmessage = ({ data }) => {
