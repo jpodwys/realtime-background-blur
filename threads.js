@@ -1,8 +1,18 @@
 class Thread {
-  constructor (workerId, worker) {
-    this.workerId = workerId;
+  constructor (worker) {
     this.worker = worker;
     this.isBusy = false;
+  }
+
+  postMessage (payload) {
+    this.isBusy = true;
+    return new Promise((resolve) => {
+      this.worker.onmessage = (event) => {
+        this.isBusy = false;
+        resolve(event);
+      }
+      this.worker.postMessage(payload);
+    });
   }
 }
 
@@ -18,9 +28,5 @@ class ThreadPool {
 
   getAvailableThread () {
     return this.threads.find((thread) => thread.isBusy === false);
-  }
-
-  getThreadByWorkerId (workerId) {
-    return this.threads.find((thread) => thread.workerId === workerId);
   }
 }

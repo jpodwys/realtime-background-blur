@@ -1,17 +1,11 @@
 class Blur {
   constructor (videoStreamTrack, canvasOutputElement) {
     this.videoStreamTrack = videoStreamTrack;
+    this.outputCanvas = canvasOutputElement;
+    this.outputCtx = this.outputCanvas.getContext('2d');
     const { width, height } = this.videoStreamTrack.getSettings();
     this.width = width;
     this.height = height;
-
-    this.outputCanvas = canvasOutputElement;
-    this.outputCtx = this.outputCanvas.getContext('2d');
-
-    this.tempCanvas = document.createElement('canvas');
-    // this.tempCanvas = new OffscreenCanvas(this.width, this.height);
-    this.tempCtx = this.tempCanvas.getContext('2d');
-
     this.blur = true;
     this.workerCount = Math.min(4, navigator.hardwareConcurrency);
     this.threadPool = new ThreadPool();
@@ -20,8 +14,6 @@ class Blur {
 
   async init () {
     this.imageCapture = new ImageCapture(this.videoStreamTrack);
-    this.tempCanvas.width = this.width;
-    this.tempCanvas.height = this.height;
     this.outputCanvas.width = this.width;
     this.outputCanvas.height = this.height;
     this.populateThreadPool();
@@ -36,25 +28,15 @@ class Blur {
 
   createThread () {
     const worker = new Worker('./blur-worker.js');
-    const workerId = Date.now();
-    worker.addEventListener('message', this.onFrame.bind(this));
-    worker.postMessage({ action: 'init', payload: { workerId, width: this.width, height: this.height } });
-    const thread = new Thread(workerId, worker);
+    const thread = new Thread(worker);
+    thread.postMessage({ action: 'init', payload: { width: this.width, height: this.height } });
     this.threadPool.addThread(thread);
   }
 
   onFrame (event) {
-    const { frame, segmentation, frameTime, workerId } = event.data;
-    const thread = this.threadPool.getThreadByWorkerId(workerId);
-    thread.isBusy = false;
+    const { frame, frameTime } = event.data;
     if (this.blur) {
-      // this.outputCtx.putImageData(frame, 0, 0);
-
-      // https://github.com/tensorflow/tfjs/issues/5019
-      // Once I can pass an OffscreenCanvas instance to `drawBokehEffect`,
-      // I can move this into the worker and see if that improves performance.
-      this.tempCtx.putImageData(frame, 0, 0);
-      bodyPix.drawBokehEffect(this.outputCanvas, this.tempCanvas, segmentation, 5, 3);
+      this.outputCtx.putImageData(frame, 0, 0);
     }
     this.metrics.trackFrame(frameTime);
   }
@@ -74,8 +56,7 @@ class Blur {
     if (this.blur) {
       const thread = this.threadPool.getAvailableThread();
       if (thread) {
-        thread.isBusy = true;
-        thread.worker.postMessage({ action: 'draw', payload: bitmap });
+        thread.postMessage({ action: 'draw', payload: bitmap }).then((event) => this.onFrame(event));
         this.metrics.trackHit(true);
       } else {
         this.metrics.trackMiss(false);
