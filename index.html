@@ -20,99 +20,28 @@
       <canvas id="video-output"></canvas>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+    <!-- These can go away when I can move the bokeh logic into my worker code -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.6.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.1.0"></script>
+
+    <script src="./threads.js"></script>
+    <script src="./metrics.js"></script>
+    <script src="./blur.js"></script>
     <script>
-      class Blur {
-        constructor () {
-          this.blur = true;
-          this.startDraw = performance.now();
-          this.totalFrames = 0;
+      (async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        const [ track ] = stream.getVideoTracks();
+        const video = document.getElementById('video-input');
+        const canvas = document.getElementById('video-output');
+        const toggle = document.getElementById('toggle');
 
-          this.bodyPixConfig = {
-            architechture: 'ResNetV1',
-            outputStride: 16,
-            multiplier: 1,
-            quantBytes: 4
-          };
+        const blur = new Blur(track, canvas);
+        await blur.init();
 
-          this.segmentationConfig = {
-            internalResolution: 1,
-            segmentationThreshold: 0.5,
-            scoreThreshold: 1
-          };
-        }
+        video.srcObject = stream;
 
-        async init () {
-          this.videoInput = document.getElementById('video-input');
-          this.processCanvas = document.createElement('canvas');
-          this.processCtx = this.processCanvas.getContext('2d');
-          this.blurCanvas = document.createElement('canvas');
-          this.blurCtx = this.blurCanvas.getContext('2d');
-          this.outputCanvas = document.getElementById('video-output');
-          this.outputCtx = this.outputCanvas.getContext('2d');
-
-          this.model = await bodyPix.load(this.bodyPixConfig);
-          this.initVideoStream();
-        }
-
-        toggle () {
-          this.blur = !this.blur;
-
-          if (this.blur) {
-            this.startDraw = performance.now();
-          } else {
-            const elapsed = (performance.now() - this.startDraw) / 1000;
-            console.log('Average FPS:', this.totalFrames / elapsed);
-            this.totalFrames = 0;
-          }
-        }
-
-        async initVideoStream () {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          this.videoInput.addEventListener('loadedmetadata', () => {
-            this.width = this.videoInput.videoWidth;
-            this.height = this.videoInput.videoHeight;
-            this.setElementProperties();
-            this.draw();
-          });
-          this.videoInput.srcObject = stream;
-        }
-
-        setElementProperties () {
-          this.setCanvasWidth(this.processCanvas);
-          this.setCanvasWidth(this.blurCanvas);
-          this.setCanvasWidth(this.outputCanvas);
-
-          this.blurCtx.filter = 'blur(15px)';
-        }
-
-        setCanvasWidth (canvas) {
-          canvas.width = this.width
-          canvas.height = this.height
-        }
-
-        async draw () {
-          if (!this.blur) {
-            this.outputCtx.drawImage(this.videoInput, 0, 0, this.width, this.height);
-            setTimeout(this.draw.bind(this), 1000 / 30);
-          } else {
-            // Todo: Move this into a worker thread that uses OffscreenCanvas
-            this.processCtx.drawImage(this.videoInput, 0, 0, this.width, this.height);
-            const segmentation = await this.model.segmentPerson(this.processCanvas);
-            bodyPix.drawBokehEffect(this.outputCanvas, this.processCanvas, segmentation, 5, 3);
-            this.totalFrames++;
-            await this.draw();
-          }
-        }
-      }
-
-      const blur = new Blur();
-      blur.init();
-
-      document.getElementById('toggle').addEventListener('click', () => {
-        blur.toggle();
-      });
+        toggle.addEventListener('click', () => blur.toggle());
+      })();
     </script>
   </body>
 </html>
