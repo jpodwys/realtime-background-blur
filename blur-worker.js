@@ -1,6 +1,5 @@
 class BlurWorker {
-  constructor (workerId, width, height) {
-    this.workerId = workerId;
+  constructor (width, height) {
     this.width = width;
     this.height = height;
     this.processCanvas = new OffscreenCanvas(this.width, this.height);
@@ -11,13 +10,13 @@ class BlurWorker {
     this.bodyPixConfig = {
       architechture: 'MobileNetV1',
       outputStride: 16,
-      multiplier: 1,
-      quantBytes: 4
+      multiplier: 0.5,
+      quantBytes: 2
     };
 
     this.segmentationConfig = {
-      internalResolution: 1,
-      segmentationThreshold: 0.8,
+      internalResolution: 'medium',
+      segmentationThreshold: 0.7,
       scoreThreshold: 1
     };
   }
@@ -28,7 +27,7 @@ class BlurWorker {
     this.processCtx.drawImage(bitmap, 0, 0, this.width, this.height);
     const frame = this.processCtx.getImageData(0, 0, this.width, this.height);
     const segmentation = await this.model.segmentPerson(frame);
-    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, 5, 3);
+    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, 5, 15);
 
     return {
       frame: this.tempCtx.getImageData(0, 0, this.width, this.height),
@@ -44,8 +43,8 @@ self.importScripts(
 
 let worker;
 
-const init = async ({ workerId, width, height }) => {
-  worker = new BlurWorker(workerId, width, height);
+const init = async ({ width, height }) => {
+  worker = new BlurWorker(width, height);
   self.postMessage({});
 }
 

@@ -29,7 +29,13 @@
     <script src="./blur.js"></script>
     <script>
       (async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        const contstraints = {
+          video: {
+            width: 640, height: 480,
+            frameRate: { ideal: 30, max: 30 }
+          }
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(contstraints);
         const [ track ] = stream.getVideoTracks();
         const video = document.getElementById('video-input');
         const canvas = document.getElementById('video-output');
