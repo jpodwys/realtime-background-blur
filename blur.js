@@ -1,5 +1,5 @@
 class Blur {
-  constructor (videoStreamTrack, canvasOutputElement) {
+  constructor (videoStreamTrack, canvasOutputElement, metricsOutputElement) {
     this.videoStreamTrack = videoStreamTrack;
     this.outputCanvas = canvasOutputElement;
     this.outputCtx = this.outputCanvas.getContext('2d');
@@ -8,8 +8,11 @@ class Blur {
     this.height = height;
     this.blur = true;
     this.workerCount = Math.min(3, navigator.hardwareConcurrency);
+    this.backgroundBlurAmount = 8;
+    this.edgeBlurAmount = 15;
     this.threadPool = new ThreadPool();
-    this.metrics = new Metrics();
+    this.metrics = new Metrics(metricsOutputElement);
+    this.firstFrameReached = false;
   }
 
   async init () {
@@ -18,6 +21,7 @@ class Blur {
     this.outputCanvas.height = this.height;
     this.populateThreadPool();
     this.draw();
+    setTimeout(() => this.metrics.start(), 5000);
   }
 
   populateThreadPool () {
@@ -29,7 +33,10 @@ class Blur {
   createThread () {
     const worker = new Worker('./blur-worker.js');
     const thread = new Thread(worker);
-    thread.postMessage({ action: 'init', payload: { width: this.width, height: this.height } });
+    thread.postMessage({
+      action: 'init',
+      payload: { width: this.width, height: this.height }
+    });
     this.threadPool.addThread(thread);
   }
 
@@ -56,7 +63,15 @@ class Blur {
     if (this.blur) {
       const thread = this.threadPool.getAvailableThread();
       if (thread) {
-        thread.postMessage({ action: 'draw', payload: bitmap }).then((event) => this.onFrame(event));
+        thread.postMessage({
+          action: 'draw',
+          payload: {
+            bitmap,
+            backgroundBlurAmount: this.backgroundBlurAmount,
+            edgeBlurAmount: this.edgeBlurAmount
+          }
+        })
+        .then((event) => this.onFrame(event));
         this.metrics.trackHit(true);
       } else {
         this.metrics.trackMiss(false);

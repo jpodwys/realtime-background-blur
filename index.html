@@ -1,28 +1,48 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
     <title>Realtime Background Blurring Demo</title>
     <style>
       body {
         background-color: black;
         color: white;
       }
+
+      header {
+        max-width: 1280px;
+        margin: auto;
+      }
+
+      canvas {
+        max-width: 1280px;
+        width: 100vw;
+        margin: auto;
+      }
+
+      footer {
+        text-align: center;
+      }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Realtime Background Blurring Demo</h1>
-      <button id="toggle">Toggle Blur</button>
+    <header class="p-4 grid grid-cols-3 gap-4 justify-items-center">
+      <button id="toggle" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Toggle Blur</button>
+      <div>
+        <label class="font-bold">Background Blur</label>
+        <input id="backgrounBlur" type="range" min="0" max="20" step="1"/>
+      </div>
+      <div>
+        <label class="font-bold">Edge Blur</label>
+        <input id="edgeBlur" type="range" min="0" max="20" step="1"/>
+      </div>
     </header>
 
     <main>
-      <video id="video-input" autoplay></video>
       <canvas id="video-output"></canvas>
     </main>
 
-    <!-- These can go away when I can move the bokeh logic into my worker code -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.6.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.1.0"></script>
+    <footer id="footer"></footer>
 
     <script src="./threads.js"></script>
     <script src="./metrics.js"></script>
@@ -37,16 +57,22 @@
         };
         const stream = await navigator.mediaDevices.getUserMedia(contstraints);
         const [ track ] = stream.getVideoTracks();
-        const video = document.getElementById('video-input');
         const canvas = document.getElementById('video-output');
         const toggle = document.getElementById('toggle');
+        const backgrounBlur = document.getElementById('backgrounBlur');
+        const edgeBlur = document.getElementById('edgeBlur');
+        const footer = document.getElementById('footer');
 
-        const blur = new Blur(track, canvas);
+        const blur = new Blur(track, canvas, footer);
         await blur.init();
 
-        video.srcObject = stream;
-
         toggle.addEventListener('click', () => blur.toggle());
+        backgrounBlur.addEventListener('input', (e) => {
+          blur.backgroundBlurAmount = parseInt(e.target.value);
+        });
+        edgeBlur.addEventListener('input', (e) => {
+          blur.edgeBlurAmount = parseInt(e.target.value);
+        });
       })();
     </script>
   </body>

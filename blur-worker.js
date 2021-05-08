@@ -21,13 +21,13 @@ class BlurWorker {
     };
   }
 
-  async draw (bitmap) {
+  async draw ({ bitmap, backgroundBlurAmount, edgeBlurAmount }) {
     if (!this.model) this.model = await bodyPix.load(this.bodyPixConfig);
     const start = performance.now();
     this.processCtx.drawImage(bitmap, 0, 0, this.width, this.height);
     const frame = this.processCtx.getImageData(0, 0, this.width, this.height);
     const segmentation = await this.model.segmentPerson(frame);
-    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, 5, 15);
+    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, backgroundBlurAmount, edgeBlurAmount);
 
     return {
       frame: this.tempCtx.getImageData(0, 0, this.width, this.height),
@@ -48,8 +48,8 @@ const init = async ({ width, height }) => {
   self.postMessage({});
 }
 
-const draw = async (videoInput) => {
-  const { frame, frameTime } = await worker.draw(videoInput);
+const draw = async (payload) => {
+  const { frame, frameTime } = await worker.draw(payload);
   self.postMessage({ frame, frameTime });
 }
 
