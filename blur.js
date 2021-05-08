@@ -7,7 +7,7 @@ class Blur {
     this.width = width;
     this.height = height;
     this.blur = true;
-    this.workerCount = Math.min(4, navigator.hardwareConcurrency);
+    this.workerCount = Math.min(3, navigator.hardwareConcurrency);
     this.threadPool = new ThreadPool();
     this.metrics = new Metrics();
   }
