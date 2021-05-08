@@ -27,7 +27,7 @@ class BlurWorker {
     this.processCtx.drawImage(bitmap, 0, 0, this.width, this.height);
     const frame = this.processCtx.getImageData(0, 0, this.width, this.height);
     const segmentation = await this.model.segmentPerson(frame);
-    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, backgroundBlurAmount, edgeBlurAmount);
+    bodyPix.drawBokehEffect(this.tempCanvas, this.processCanvas, segmentation, backgroundBlurAmount, edgeBlurAmount, true);
 
     return {
       frame: this.tempCtx.getImageData(0, 0, this.width, this.height),
